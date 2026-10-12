@@ -12,7 +12,7 @@ Practice interview questions the way they're actually asked: **you hear the ques
 | | Narration (TTS) | Interviewer / grader |
 |---|---|---|
 | Browser built-in (free, no key) | ✅ | — |
-| Zhipu GLM | ✅ `glm-tts` | ✅ `glm-4.5-flash` (free tier) |
+| Zhipu GLM | ✅ `glm-tts` | ✅ `glm-4.7-flash` (free tier) |
 | DeepSeek | — (no TTS API) | ✅ |
 | OpenAI | ✅ | ✅ |
 | Anthropic Claude | — | ✅ |
@@ -20,7 +20,7 @@ Practice interview questions the way they're actually asked: **you hear the ques
 | ElevenLabs | ✅ | — |
 | Any OpenAI-compatible endpoint | — | ✅ |
 
-Model names, voices, and base URLs are all editable in Settings.
+Models and voices are picked from dropdowns in Settings. "Load from my account" lists exactly the models your key can use, and "Other…" accepts any model ID.
 
 **Privacy:** API keys and the question bank live in your browser's localStorage. The `/api/chat` and `/api/tts` routes forward each request to the provider using your key; nothing is stored on the server.
 

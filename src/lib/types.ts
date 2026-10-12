@@ -32,6 +32,7 @@ export type TTSConfig = { model: string; voice: string };
 export type LLMConfig = { model: string; baseUrl: string };
 
 export type Settings = {
+  version: number;
   keys: Record<Vendor, string>;
   tts: {
     provider: TTSProvider;

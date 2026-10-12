@@ -83,7 +83,10 @@ export async function POST(req: Request) {
           },
         );
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(`Provider error ${res.status}: ${data?.error?.message ?? "Request failed"}`);
+        if (!res.ok)
+          throw new Error(
+            `Provider error ${res.status}: ${data?.error?.message ?? "Request failed"}${res.status === 404 ? " — pick another TTS model in Settings." : ""}`,
+          );
         const part = data?.candidates?.[0]?.content?.parts?.find(
           (p: { inlineData?: { data: string } }) => p.inlineData,
         );
@@ -110,7 +113,8 @@ async function audio(res: Response, fallbackType: string) {
       const j = JSON.parse(text);
       msg = j?.error?.message ?? j?.detail?.message ?? j?.message ?? text;
     } catch {}
-    throw new Error(`Provider error ${res.status}: ${String(msg).slice(0, 300)}`);
+    const hint = res.status === 404 ? " — this model or voice isn't available for your key; pick another in Settings." : "";
+    throw new Error(`Provider error ${res.status}: ${String(msg).slice(0, 300)}${hint}`);
   }
   const buf = await res.arrayBuffer();
   return new Response(buf, {

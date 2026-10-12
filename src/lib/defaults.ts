@@ -1,3 +1,4 @@
+import { LLM_MODELS, TTS_MODELS } from "./catalog";
 import type { LLMProvider, Question, Settings, TTSProvider, Vendor } from "./types";
 
 export const VENDOR_LABELS: Record<Vendor, string> = {
@@ -27,13 +28,6 @@ export const TTS_LABELS: Record<TTSProvider, string> = {
   elevenlabs: "ElevenLabs",
 };
 
-export const TTS_VOICE_HINTS: Record<Exclude<TTSProvider, "browser">, string> = {
-  zhipu: "tongtong, chuichui, xiaochen, jam, kazi, douji, luodo",
-  openai: "alloy, ash, coral, echo, fable, nova, onyx, sage, shimmer",
-  gemini: "Kore, Puck, Charon, Fenrir, Aoede, Leda, Zephyr",
-  elevenlabs: "Voice ID from your ElevenLabs voice library",
-};
-
 /** Max characters sent per TTS request; long questions are split into chunks. */
 export const TTS_CHUNK: Record<TTSProvider, number> = {
   browser: 220,
@@ -52,7 +46,11 @@ export const LLM_LABELS: Record<LLMProvider, string> = {
   custom: "Custom (OpenAI-compatible)",
 };
 
+/** Bump when default model names change so saved settings get migrated. */
+export const SETTINGS_VERSION = 2;
+
 export const DEFAULT_SETTINGS: Settings = {
+  version: SETTINGS_VERSION,
   keys: {
     zhipu: "",
     deepseek: "",
@@ -67,21 +65,21 @@ export const DEFAULT_SETTINGS: Settings = {
     rate: 1,
     browserVoice: "",
     configs: {
-      zhipu: { model: "glm-tts", voice: "tongtong" },
-      openai: { model: "gpt-4o-mini-tts", voice: "alloy" },
-      gemini: { model: "gemini-2.5-flash-preview-tts", voice: "Kore" },
-      elevenlabs: { model: "eleven_flash_v2_5", voice: "21m00Tcm4TlvDq8ikWAM" },
+      zhipu: { model: TTS_MODELS.zhipu[0].id, voice: "tongtong" },
+      openai: { model: TTS_MODELS.openai[0].id, voice: "alloy" },
+      gemini: { model: TTS_MODELS.gemini[0].id, voice: "Kore" },
+      elevenlabs: { model: TTS_MODELS.elevenlabs[0].id, voice: "21m00Tcm4TlvDq8ikWAM" },
     },
   },
   llm: {
     provider: "zhipu",
     configs: {
-      zhipu: { model: "glm-4.5-flash", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
-      deepseek: { model: "deepseek-chat", baseUrl: "https://api.deepseek.com" },
-      openai: { model: "gpt-5-mini", baseUrl: "https://api.openai.com/v1" },
-      anthropic: { model: "claude-sonnet-5-5", baseUrl: "https://api.anthropic.com/v1" },
+      zhipu: { model: LLM_MODELS.zhipu[0].id, baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+      deepseek: { model: LLM_MODELS.deepseek[0].id, baseUrl: "https://api.deepseek.com" },
+      openai: { model: LLM_MODELS.openai[0].id, baseUrl: "https://api.openai.com/v1" },
+      anthropic: { model: LLM_MODELS.anthropic[0].id, baseUrl: "https://api.anthropic.com/v1" },
       gemini: {
-        model: "gemini-2.5-flash",
+        model: LLM_MODELS.gemini[0].id,
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
       },
       custom: { model: "", baseUrl: "" },

@@ -93,5 +93,11 @@ function errorMessage(status: number, data: unknown) {
   const d = data as { error?: { message?: string } | string; message?: string } | null;
   const msg =
     (typeof d?.error === "object" ? d.error?.message : d?.error) ?? d?.message ?? "Request failed";
-  return `Provider error ${status}: ${msg}`;
+  const hint =
+    status === 404
+      ? " — this model isn't available for your key. Pick another model in Settings (or use “Load from my account”)."
+      : status === 401
+        ? " — check your API key (and for Zhipu, the China/International region) in Settings."
+        : "";
+  return `Provider error ${status}: ${msg}${hint}`;
 }

@@ -2,14 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { askLLM, narrate } from "@/lib/client";
-import {
-  KEY_LINKS,
-  LLM_LABELS,
-  TTS_LABELS,
-  TTS_VOICE_HINTS,
-  VENDOR_LABELS,
-} from "@/lib/defaults";
+import { LLM_MODELS, TTS_MODELS, TTS_VOICES, ZHIPU_REGIONS, type Option } from "@/lib/catalog";
+import { KEY_LINKS, LLM_LABELS, TTS_LABELS, VENDOR_LABELS } from "@/lib/defaults";
 import type { LLMProvider, Settings, TTSProvider, Vendor } from "@/lib/types";
+import { Picker } from "./Picker";
 
 export function SettingsPanel({
   settings: s,
@@ -21,6 +17,8 @@ export function SettingsPanel({
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [ttsStatus, setTtsStatus] = useState("");
   const [llmStatus, setLlmStatus] = useState("");
+  const [accountModels, setAccountModels] = useState<Partial<Record<LLMProvider, Option[]>>>({});
+  const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
     if (typeof speechSynthesis === "undefined") return;
@@ -45,6 +43,30 @@ export function SettingsPanel({
       setTtsStatus(`✕ ${e instanceof Error ? e.message : e}`);
     }
   };
+
+  const loadModels = async () => {
+    setLoadingModels(true);
+    setLlmStatus("");
+    try {
+      const res = await fetch("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: llm.provider, apiKey: s.keys[llm.provider], baseUrl: llmCfg.baseUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+      const models: Option[] = data.models;
+      if (!models.length) throw new Error("No chat models found for this key.");
+      setAccountModels((m) => ({ ...m, [llm.provider]: models }));
+      setLlmStatus(`✓ Loaded ${models.length} models available to your key`);
+    } catch (e) {
+      setLlmStatus(`✕ ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  const llmOptions = accountModels[llm.provider] ?? LLM_MODELS[llm.provider];
 
   const testLLM = async () => {
     setLlmStatus("Testing…");
@@ -106,20 +128,25 @@ export function SettingsPanel({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label">Model</label>
-                  <input
-                    className="input"
+                  <Picker
+                    key={`tts-model-${tts.provider}`}
                     value={ttsCfg.model}
-                    onChange={(e) => setTtsCfg(s, setSettings, tts.provider as Exclude<TTSProvider, "browser">, { model: e.target.value })}
+                    options={TTS_MODELS[tts.provider]}
+                    customLabel="Other model…"
+                    customPlaceholder="model id"
+                    onChange={(v) => setTtsCfg(s, setSettings, tts.provider as Exclude<TTSProvider, "browser">, { model: v })}
                   />
                 </div>
                 <div>
                   <label className="label">Voice</label>
-                  <input
-                    className="input"
+                  <Picker
+                    key={`tts-voice-${tts.provider}`}
                     value={ttsCfg.voice}
-                    onChange={(e) => setTtsCfg(s, setSettings, tts.provider as Exclude<TTSProvider, "browser">, { voice: e.target.value })}
+                    options={TTS_VOICES[tts.provider]}
+                    customLabel={tts.provider === "elevenlabs" ? "Other voice ID…" : "Other voice…"}
+                    customPlaceholder={tts.provider === "elevenlabs" ? "Voice ID from your ElevenLabs library" : "voice name"}
+                    onChange={(v) => setTtsCfg(s, setSettings, tts.provider as Exclude<TTSProvider, "browser">, { voice: v })}
                   />
-                  <p className="text-xs text-muted mt-1">{TTS_VOICE_HINTS[tts.provider]}</p>
                 </div>
               </div>
             </>
@@ -171,28 +198,51 @@ export function SettingsPanel({
           </select>
         </div>
         <KeyField vendor={llm.provider} value={s.keys[llm.provider]} onChange={setKey} />
-        <div className="grid gap-4 sm:grid-cols-2">
+        {llm.provider === "zhipu" && (
           <div>
-            <label className="label">Model</label>
-            <input
-              className="input"
-              value={llmCfg.model}
-              placeholder="model name"
-              onChange={(e) => setLlmCfg(s, setSettings, llm.provider, { model: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="label">Base URL</label>
-            <input
-              className="input"
+            <label className="label">Region (must match where your key was created)</label>
+            <Picker
               value={llmCfg.baseUrl}
-              placeholder="https://…/v1"
-              onChange={(e) => setLlmCfg(s, setSettings, llm.provider, { baseUrl: e.target.value })}
+              options={ZHIPU_REGIONS}
+              customLabel="Other endpoint…"
+              customPlaceholder="https://…/api/paas/v4"
+              onChange={(v) => setLlmCfg(s, setSettings, "zhipu", { baseUrl: v })}
             />
-            {llm.provider === "zhipu" && (
-              <p className="text-xs text-muted mt-1">Outside China (z.ai)? Use https://api.z.ai/api/paas/v4</p>
-            )}
           </div>
+        )}
+        {llm.provider === "custom" && (
+          <div>
+            <label className="label">Base URL (OpenAI-compatible)</label>
+            <input
+              className="input font-mono"
+              value={llmCfg.baseUrl}
+              placeholder="https://api.example.com/v1"
+              onChange={(e) => setLlmCfg(s, setSettings, "custom", { baseUrl: e.target.value.trim() })}
+            />
+          </div>
+        )}
+        <div>
+          <div className="flex items-end justify-between gap-2 mb-1">
+            <label className="label mb-0">
+              Model{accountModels[llm.provider] ? " (from your account)" : ""}
+            </label>
+            <button
+              className="text-xs underline text-muted hover:text-foreground disabled:opacity-50"
+              onClick={loadModels}
+              disabled={loadingModels || !s.keys[llm.provider] || !llmCfg.baseUrl}
+              title="List the models your API key can actually use"
+            >
+              {loadingModels ? "Loading…" : "↻ Load from my account"}
+            </button>
+          </div>
+          <Picker
+            key={`llm-model-${llm.provider}-${accountModels[llm.provider] ? "acct" : "cat"}`}
+            value={llmCfg.model}
+            options={llmOptions}
+            customLabel="Other model…"
+            customPlaceholder="model id"
+            onChange={(v) => setLlmCfg(s, setSettings, llm.provider, { model: v })}
+          />
         </div>
 
         <Toggle
