@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Interview Me 🎧
 
-## Getting Started
+Practice interview questions the way they're actually asked: **you hear the question once, then it's hidden.**
 
-First, run the development server:
+1. **Question bank**: save questions (plus an optional reference solution and tags).
+2. **Practice**: the question is narrated once, then locked.
+3. **Ask the interviewer**: check details ("Is n up to 10^5? Can there be duplicates?"). The AI confirms or corrects facts but never hints at the solution.
+4. **Submit your answer**: the AI grades your steps against the reference solution (correct / partial / incorrect, score, what's missing). The question and solution are then revealed. You can also **give up** to reveal them.
+
+## Providers (bring your own key — set in **Settings**)
+
+| | Narration (TTS) | Interviewer / grader |
+|---|---|---|
+| Browser built-in (free, no key) | ✅ | — |
+| Zhipu GLM | ✅ `glm-tts` | ✅ `glm-4.5-flash` (free tier) |
+| DeepSeek | — (no TTS API) | ✅ |
+| OpenAI | ✅ | ✅ |
+| Anthropic Claude | — | ✅ |
+| Google Gemini | ✅ | ✅ |
+| ElevenLabs | ✅ | — |
+| Any OpenAI-compatible endpoint | — | ✅ |
+
+Model names, voices, and base URLs are all editable in Settings.
+
+**Privacy:** API keys and the question bank live in your browser's localStorage. The `/api/chat` and `/api/tts` routes forward each request to the provider using your key; nothing is stored on the server.
+
+## Sharing
+
+- **Share** on a question (or **Share all**) copies a link that contains the questions. Whoever opens it can add them to their own bank.
+- **Export / Import** saves and loads your whole bank as JSON.
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy to Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No environment variables are needed.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm i -g vercel
+vercel        # preview
+vercel --prod # production
+```
 
-## Learn More
+Or push to GitHub and import the repo at https://vercel.com/new.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Dictation (🎤) uses the browser's speech recognition, which works in Chrome, Edge, and Safari.
