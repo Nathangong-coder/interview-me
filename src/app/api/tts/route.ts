@@ -25,17 +25,28 @@ export async function POST(req: Request) {
     switch (provider) {
       case "zhipu": {
         const base = (body.baseUrl || "https://open.bigmodel.cn/api/paas/v4").replace(/\/+$/, "");
-        const res = await fetch(`${base}/audio/speech`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model,
-            input: text,
-            voice,
-            speed: clamp(speed, 0.5, 2),
-            response_format: "wav",
-          }),
-        });
+        // Z.AI (international) has no TTS endpoint — only open.bigmodel.cn (China) does.
+        if (/z\.ai/i.test(base))
+          throw new Error(
+            "Zhipu voice isn't available on the International (z.ai) platform — only on the China platform (open.bigmodel.cn). Use the browser voice or another narration provider in Settings.",
+          );
+        // Some accounts only have the older CogTTS model enabled; fall back to it if the model code is rejected.
+        const candidates = [...new Set([model, "glm-tts", "cogtts"].filter(Boolean))];
+        let res!: Response;
+        for (const m of candidates) {
+          res = await fetch(`${base}/audio/speech`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: m,
+              input: text,
+              voice,
+              speed: clamp(speed, 0.5, 2),
+              response_format: "wav",
+            }),
+          });
+          if (res.ok || !(await isUnknownModel(res))) break;
+        }
         return await audio(res, "audio/wav");
       }
       case "openai": {
@@ -113,13 +124,21 @@ async function audio(res: Response, fallbackType: string) {
       const j = JSON.parse(text);
       msg = j?.error?.message ?? j?.detail?.message ?? j?.message ?? text;
     } catch {}
-    const hint = res.status === 404 ? " — this model or voice isn't available for your key; pick another in Settings." : "";
+    if (/模型不存在/.test(String(msg))) msg = `${msg} (model does not exist for this key)`;
+    const hint = res.status === 404 ?" — this model or voice isn't available for your key; pick another in Settings." : "";
     throw new Error(`Provider error ${res.status}: ${String(msg).slice(0, 300)}${hint}`);
   }
   const buf = await res.arrayBuffer();
   return new Response(buf, {
     headers: { "Content-Type": res.headers.get("content-type")?.startsWith("audio") ? res.headers.get("content-type")! : fallbackType },
   });
+}
+
+/** True for Zhipu's "模型不存在" (model does not exist) error. Reads a clone so the body stays usable. */
+async function isUnknownModel(res: Response) {
+  if (res.status !== 400 && res.status !== 404) return false;
+  const text = await res.clone().text();
+  return /模型不存在|1211|model.*(not exist|not found)/i.test(text);
 }
 
 function clamp(n: number, lo: number, hi: number) {

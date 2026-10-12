@@ -107,6 +107,16 @@ export function SettingsPanel({
           </select>
         </div>
 
+        {tts.provider === "zhipu" && /z\.ai/i.test(llm.configs.zhipu.baseUrl) && (
+          <p className="text-sm text-warn">
+            ⚠ Your Zhipu region is set to International (z.ai), which has no voice API. Zhipu voice needs a China
+            (open.bigmodel.cn) key and region. Pick another narration provider, or change the region below. Until
+            then, practice falls back to the browser voice.
+          </p>
+        )}
+        {tts.provider === "zhipu" && (
+          <p className="text-xs text-muted">Zhipu voice uses the same key and region as the Zhipu interviewer below.</p>
+        )}
         {tts.provider === "browser" ? (
           <div>
             <label className="label">Voice</label>

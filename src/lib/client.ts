@@ -23,10 +23,15 @@ export function chunkText(text: string, max: number): string[] {
   return chunks.filter(Boolean);
 }
 
-export type Narration = { stop: () => void; done: Promise<void> };
+/** `fallbackReason` is set when the API voice failed and the browser voice finished the job. */
+export type Narration = { stop: () => void; done: Promise<{ fallbackReason?: string }> };
 
-/** Speak text with the configured provider. Resolves `done` when finished (or stopped). */
-export function narrate(text: string, settings: Settings): Narration {
+/**
+ * Speak text with the configured provider. Resolves `done` when finished (or stopped).
+ * With `fallback`, an API voice failure switches to the free browser voice for whatever
+ * hasn't been spoken yet, instead of rejecting.
+ */
+export function narrate(text: string, settings: Settings, opts: { fallback?: boolean } = {}): Narration {
   const provider = settings.tts.provider;
   const chunks = chunkText(text, TTS_CHUNK[provider]);
   let stopped = false;
@@ -34,17 +39,17 @@ export function narrate(text: string, settings: Settings): Narration {
   if (provider === "browser") {
     const synth = window.speechSynthesis;
     const voice = synth.getVoices().find((v) => v.name === settings.tts.browserVoice);
-    const done = new Promise<void>((resolve, reject) => {
+    const done = new Promise<{ fallbackReason?: string }>((resolve, reject) => {
       if (!synth) return reject(new Error("This browser has no speech synthesis."));
       synth.cancel();
       let i = 0;
       const next = () => {
-        if (stopped || i >= chunks.length) return resolve();
+        if (stopped || i >= chunks.length) return resolve({});
         const u = new SpeechSynthesisUtterance(chunks[i++]);
         if (voice) u.voice = voice;
         u.rate = settings.tts.rate;
         u.onend = next;
-        u.onerror = (e) => (e.error === "interrupted" || e.error === "canceled" ? resolve() : reject(new Error(`Speech error: ${e.error}`)));
+        u.onerror = (e) => (e.error === "interrupted" || e.error === "canceled" ? resolve({}) : reject(new Error(`Speech error: ${e.error}`)));
         synth.speak(u);
       };
       next();
@@ -61,6 +66,8 @@ export function narrate(text: string, settings: Settings): Narration {
   const cfg = settings.tts.configs[provider];
   const apiKey = settings.keys[provider];
   let audio: HTMLAudioElement | null = null;
+  let fallbackNarration: Narration | null = null;
+  let spoken = 0; // chunks fully played
   const urls: string[] = [];
 
   const fetchChunk = async (chunk: string) => {
@@ -95,7 +102,7 @@ export function narrate(text: string, settings: Settings): Narration {
       audio.play().catch(reject);
     });
 
-  const done = (async () => {
+  const speakWithApi = async () => {
     if (!apiKey) throw new Error(`No API key for ${provider} — add one in Settings.`);
     try {
       let pending = fetchChunk(chunks[0]);
@@ -108,9 +115,23 @@ export function narrate(text: string, settings: Settings): Narration {
         }
         if (stopped) break;
         await play(url);
+        spoken++;
       }
     } finally {
       urls.forEach((u) => URL.revokeObjectURL(u));
+    }
+  };
+
+  const done = (async (): Promise<{ fallbackReason?: string }> => {
+    try {
+      await speakWithApi();
+      return {};
+    } catch (e) {
+      if (!opts.fallback || stopped) throw e;
+      const rest = chunks.slice(spoken).join(" ");
+      fallbackNarration = narrate(rest, { ...settings, tts: { ...settings.tts, provider: "browser" } });
+      await fallbackNarration.done;
+      return { fallbackReason: e instanceof Error ? e.message : String(e) };
     }
   })();
 
@@ -118,6 +139,7 @@ export function narrate(text: string, settings: Settings): Narration {
     stop: () => {
       stopped = true;
       (audio as HTMLAudioElement | null)?.pause();
+      (fallbackNarration as Narration | null)?.stop();
     },
     done,
   };

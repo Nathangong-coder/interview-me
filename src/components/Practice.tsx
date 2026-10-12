@@ -28,6 +28,7 @@ export function Practice({
   const [phase, setPhase] = useState<Phase>("ready");
   const [plays, setPlays] = useState(0);
   const [narrError, setNarrError] = useState("");
+  const [narrNotice, setNarrNotice] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -54,10 +55,12 @@ export function Practice({
     narrationRef.current?.stop();
     setNarrError("");
     setPhase((p) => (p === "done" ? p : "narrating"));
-    const n = narrate(q.question, settings);
+    setNarrNotice("");
+    const n = narrate(q.question, settings, { fallback: true });
     narrationRef.current = n;
     try {
-      await n.done;
+      const { fallbackReason } = await n.done;
+      if (fallbackReason) setNarrNotice(fallbackReason);
       setPlays((c) => c + 1);
     } catch (e) {
       setNarrError(e instanceof Error ? e.message : String(e));
@@ -81,7 +84,7 @@ export function Practice({
       setMessages([...next, { role: "assistant", content: reply }]);
       if (settings.speakReplies) {
         narrationRef.current?.stop();
-        narrationRef.current = narrate(reply, settings);
+        narrationRef.current = narrate(reply, settings, { fallback: true });
         narrationRef.current.done.catch(() => {});
       }
     } catch (e) {
@@ -137,6 +140,7 @@ export function Practice({
     setGradeError("");
     setChatError("");
     setNarrError("");
+    setNarrNotice("");
   };
 
   const append = (setter: (fn: (v: string) => string) => void) => (text: string) =>
@@ -205,6 +209,12 @@ export function Practice({
               )}
             </div>
           </div>
+        )}
+        {narrNotice && (
+          <p className="text-sm text-warn mt-3">
+            Your narration voice failed, so the browser voice read it instead. {narrNotice}{" "}
+            <a href="#/settings" className="underline">Fix in Settings</a>
+          </p>
         )}
         {narrError && (
           <p className="text-sm text-bad mt-3">
